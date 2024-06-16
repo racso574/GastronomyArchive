@@ -1,47 +1,48 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('ingredient-form');
-    const ingredientsList = document.getElementById('ingredients-list');
+// Front/script.js
+document.getElementById('addIngredientForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const name = document.getElementById('name').value;
-        const protein = document.getElementById('protein').value;
-        const fat = document.getElementById('fat').value;
-        const carbs = document.getElementById('carbs').value;
-        const calories = document.getElementById('calories').value;
+    const name = document.getElementById('name').value;
+    const calories = document.getElementById('calories').value;
+    const carbohydrates = document.getElementById('carbohydrates').value;
+    const proteins = document.getElementById('proteins').value;
+    const fats = document.getElementById('fats').value;
+    const weight_per_unit = document.getElementById('weight_per_unit').value;
 
-        console.log('Submitting form');
-        console.log({ name, protein, fat, carbs, calories });
-
-        const response = await fetch('/api/ingredients', {
+    try {
+        const response = await fetch('http://localhost:3000/ingredients', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ name, protein, fat, carbs, calories }),
+            body: JSON.stringify({ name, calories, carbohydrates, proteins, fats, weight_per_unit })
         });
 
+        const result = await response.json();
         if (response.ok) {
-            console.log('Ingredient added');
-            loadIngredients();
+            alert(`Ingredient added: ${result.name}`);
+            document.getElementById('addIngredientForm').reset();
         } else {
-            console.error('Failed to add ingredient');
+            alert(`Error: ${result.error}`);
         }
-    });
+    } catch (error) {
+        alert(`Fetch error: ${error.message}`);
+    }
+});
 
-    const loadIngredients = async () => {
-        console.log('Loading ingredients');
-        const response = await fetch('/api/ingredients');
+document.getElementById('loadIngredients').addEventListener('click', async () => {
+    try {
+        const response = await fetch('http://localhost:3000/ingredients');
         const ingredients = await response.json();
 
-        ingredientsList.innerHTML = '';
+        const ingredientList = document.getElementById('ingredientList');
+        ingredientList.innerHTML = '';
         ingredients.forEach(ingredient => {
             const li = document.createElement('li');
-            li.textContent = `${ingredient.name} - Proteína: ${ingredient.protein}g, Grasa: ${ingredient.fat}g, Carbohidratos: ${ingredient.carbs}g, Calorías: ${ingredient.calories}`;
-            ingredientsList.appendChild(li);
+            li.textContent = `${ingredient.name} - ${ingredient.calories} calories`;
+            ingredientList.appendChild(li);
         });
-    };
-
-    loadIngredients();
+    } catch (error) {
+        alert(`Fetch error: ${error.message}`);
+    }
 });
