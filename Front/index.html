@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gastronomy Archive</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Gastronomy Archive</h1>
+    <form id="ingredient-form">
+        <input type="text" id="name" placeholder="Nombre" required>
+        <input type="number" id="protein" placeholder="Proteína (g)" required>
+        <input type="number" id="fat" placeholder="Grasa (g)" required>
+        <input type="number" id="carbs" placeholder="Carbohidratos (g)" required>
+        <input type="number" id="calories" placeholder="Calorías" required>
+        <button type="submit">Añadir Ingrediente</button>
+    </form>
+    <h2>Lista de Ingredientes</h2>
+    <ul id="ingredients-list"></ul>
+
+    <script src="script.js"></script>
+</body>
+</html>
