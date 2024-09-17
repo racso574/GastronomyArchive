@@ -14,14 +14,14 @@ public class AlimentosController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Alimentos
+    // Listar todos los alimentos
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Alimento>>> GetAlimentos()
     {
         return await _context.Alimentos.ToListAsync();
     }
 
-    // GET: api/Alimentos/5
+    // Obtener un alimento por Id
     [HttpGet("{id}")]
     public async Task<ActionResult<Alimento>> GetAlimento(int id)
     {
@@ -35,7 +35,7 @@ public class AlimentosController : ControllerBase
         return alimento;
     }
 
-    // POST: api/Alimentos
+    // Crear un nuevo alimento
     [HttpPost]
     public async Task<ActionResult<Alimento>> PostAlimento(Alimento alimento)
     {
@@ -45,7 +45,7 @@ public class AlimentosController : ControllerBase
         return CreatedAtAction("GetAlimento", new { id = alimento.Id }, alimento);
     }
 
-    // PUT: api/Alimentos/5
+    // Editar un alimento
     [HttpPut("{id}")]
     public async Task<IActionResult> PutAlimento(int id, Alimento alimento)
     {
@@ -75,7 +75,7 @@ public class AlimentosController : ControllerBase
         return NoContent();
     }
 
-    // DELETE: api/Alimentos/5
+    // Eliminar un alimento
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteAlimento(int id)
     {

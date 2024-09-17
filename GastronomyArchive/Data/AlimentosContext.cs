@@ -10,5 +10,8 @@ namespace AlimentosAPI.Data
         }
 
         public DbSet<Alimento> Alimentos { get; set; }
+        public DbSet<Receta> Recetas { get; set; }
+        public DbSet<RecetaAlimento> RecetaAlimentos { get; set; }
+
     }
 }
