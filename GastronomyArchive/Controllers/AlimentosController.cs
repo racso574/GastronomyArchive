@@ -14,11 +14,16 @@ public class AlimentosController : ControllerBase
         _context = context;
     }
 
-    // Listar todos los alimentos
+    // Listar todos los alimentos ordenados por nombre
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Alimento>>> GetAlimentos()
+    public async Task<ActionResult<IEnumerable<Alimento>>> GetAlimentos(string sortBy = "nombre")
     {
-        return await _context.Alimentos.ToListAsync();
+        // Ordenar por nombre alfabéticamente
+        var alimentos = await _context.Alimentos
+                                    .OrderBy(a => a.Nombre)
+                                    .ToListAsync();
+
+        return alimentos;
     }
 
     // Obtener un alimento por Id
