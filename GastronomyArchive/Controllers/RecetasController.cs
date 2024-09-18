@@ -14,14 +14,23 @@ public class RecetasController : ControllerBase
         _context = context;
     }
 
-    // Crear una nueva receta
     [HttpPost]
     public async Task<ActionResult<Receta>> CrearReceta(Receta receta)
     {
+        // Desvincular los objetos completos de Receta y Alimento en RecetaAlimentos
+        foreach (var recetaAlimento in receta.RecetaAlimentos)
+        {
+            recetaAlimento.Receta = null;  // Desvinculamos el objeto Receta, solo necesitamos el RecetaId
+            recetaAlimento.Alimento = null;  // Desvinculamos el objeto Alimento, solo necesitamos el AlimentoId
+        }
+
+        // Agregamos la receta al contexto de la base de datos
         _context.Recetas.Add(receta);
         await _context.SaveChangesAsync();
+
         return CreatedAtAction(nameof(GetReceta), new { id = receta.Id }, receta);
     }
+
 
     // Obtener todas las recetas
     [HttpGet]
