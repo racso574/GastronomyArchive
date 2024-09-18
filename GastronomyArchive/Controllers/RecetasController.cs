@@ -23,6 +23,19 @@ public class RecetasController : ControllerBase
         return CreatedAtAction(nameof(GetReceta), new { id = receta.Id }, receta);
     }
 
+    // Obtener todas las recetas
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<Receta>>> GetRecetas()
+    {
+        var recetas = await _context.Recetas
+            .Include(r => r.RecetaAlimentos)
+            .ThenInclude(ra => ra.Alimento)
+            .ToListAsync();
+
+        return Ok(recetas);
+    }
+
+
     // Obtener una receta por Id
     [HttpGet("{id}")]
     public async Task<ActionResult<Receta>> GetReceta(int id)
