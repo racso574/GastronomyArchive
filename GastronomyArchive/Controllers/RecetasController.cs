@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using AlimentosAPI.Data;
 using AlimentosAPI.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -14,23 +17,15 @@ public class RecetasController : ControllerBase
         _context = context;
     }
 
+    // Crear una nueva receta
     [HttpPost]
     public async Task<ActionResult<Receta>> CrearReceta(Receta receta)
     {
-        // Desvincular los objetos completos de Receta y Alimento en RecetaAlimentos
-        foreach (var recetaAlimento in receta.RecetaAlimentos)
-        {
-            recetaAlimento.Receta = null;  // Desvinculamos el objeto Receta, solo necesitamos el RecetaId
-            recetaAlimento.Alimento = null;  // Desvinculamos el objeto Alimento, solo necesitamos el AlimentoId
-        }
-
-        // Agregamos la receta al contexto de la base de datos
         _context.Recetas.Add(receta);
         await _context.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetReceta), new { id = receta.Id }, receta);
     }
-
 
     // Obtener todas las recetas
     [HttpGet]
@@ -38,12 +33,10 @@ public class RecetasController : ControllerBase
     {
         var recetas = await _context.Recetas
             .Include(r => r.RecetaAlimentos)
-            .ThenInclude(ra => ra.Alimento)
             .ToListAsync();
 
         return Ok(recetas);
     }
-
 
     // Obtener una receta por Id
     [HttpGet("{id}")]
@@ -51,7 +44,6 @@ public class RecetasController : ControllerBase
     {
         var receta = await _context.Recetas
             .Include(r => r.RecetaAlimentos)
-            .ThenInclude(ra => ra.Alimento)
             .FirstOrDefaultAsync(r => r.Id == id);
 
         if (receta == null)
@@ -62,45 +54,110 @@ public class RecetasController : ControllerBase
         return receta;
     }
 
-    // Editar una receta
     [HttpPut("{id}")]
-    public async Task<IActionResult> PutReceta(int id, Receta receta)
+public async Task<IActionResult> PutReceta(int id, Receta receta)
+{
+    if (id != receta.Id)
     {
-        if (id != receta.Id)
-        {
-            return BadRequest();
-        }
-
-        _context.Entry(receta).State = EntityState.Modified;
-
-        try
-        {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!RecetaExists(id))
-            {
-                return NotFound();
-            }
-            else
-            {
-                throw;
-            }
-        }
-
-        return NoContent();
+        return BadRequest();
     }
+
+    // Obtener la receta actual con sus RecetaAlimentos
+    var recetaExistente = await _context.Recetas
+        .Include(r => r.RecetaAlimentos)
+        .FirstOrDefaultAsync(r => r.Id == id);
+
+    if (recetaExistente == null)
+    {
+        return NotFound();
+    }
+
+    // Comparar la lista de alimentos actual con la nueva lista de alimentos
+    var alimentosExistentesIds = recetaExistente.RecetaAlimentos.Select(ra => ra.AlimentoId).ToList();
+    var nuevosAlimentosIds = receta.RecetaAlimentos.Select(ra => ra.AlimentoId).ToList();
+
+    // Eliminar los alimentos que ya no están en la receta actualizada
+    var alimentosAEliminar = recetaExistente.RecetaAlimentos
+        .Where(ra => !nuevosAlimentosIds.Contains(ra.AlimentoId))
+        .ToList();
+
+    if (alimentosAEliminar.Any())
+    {
+        _context.RecetaAlimentos.RemoveRange(alimentosAEliminar);
+    }
+
+    // Agregar nuevos alimentos a la receta
+    var alimentosAAgregar = receta.RecetaAlimentos
+        .Where(ra => !alimentosExistentesIds.Contains(ra.AlimentoId))
+        .ToList();
+
+    if (alimentosAAgregar.Any())
+    {
+        foreach (var nuevoAlimento in alimentosAAgregar)
+        {
+            recetaExistente.RecetaAlimentos.Add(new RecetaAlimento
+            {
+                RecetaId = receta.Id,
+                AlimentoId = nuevoAlimento.AlimentoId,
+                Cantidad = nuevoAlimento.Cantidad,
+                EsEnGramos = nuevoAlimento.EsEnGramos
+            });
+        }
+    }
+
+    // Actualizar las cantidades de los alimentos existentes
+    foreach (var alimentoExistente in recetaExistente.RecetaAlimentos)
+    {
+        var alimentoActualizado = receta.RecetaAlimentos
+            .FirstOrDefault(ra => ra.AlimentoId == alimentoExistente.AlimentoId);
+
+        if (alimentoActualizado != null)
+        {
+            alimentoExistente.Cantidad = alimentoActualizado.Cantidad;
+            alimentoExistente.EsEnGramos = alimentoActualizado.EsEnGramos;
+        }
+    }
+
+    // Actualizar el resto de la receta (nombre, descripción, etc.)
+    recetaExistente.Nombre = receta.Nombre;
+    recetaExistente.Descripcion = receta.Descripcion;
+    recetaExistente.CantidadPersonasBase = receta.CantidadPersonasBase;
+
+    try
+    {
+        await _context.SaveChangesAsync();
+    }
+    catch (DbUpdateConcurrencyException)
+    {
+        if (!RecetaExists(id))
+        {
+            return NotFound();
+        }
+        else
+        {
+            throw;
+        }
+    }
+
+    return NoContent();
+}
+
 
     // Eliminar una receta
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteReceta(int id)
     {
-        var receta = await _context.Recetas.FindAsync(id);
+        var receta = await _context.Recetas
+            .Include(r => r.RecetaAlimentos)
+            .FirstOrDefaultAsync(r => r.Id == id);
+
         if (receta == null)
         {
             return NotFound();
         }
+
+        // Eliminar las relaciones en RecetaAlimentos antes de eliminar la receta
+        _context.RecetaAlimentos.RemoveRange(receta.RecetaAlimentos);
 
         _context.Recetas.Remove(receta);
         await _context.SaveChangesAsync();
@@ -114,7 +171,6 @@ public class RecetasController : ControllerBase
     {
         var receta = await _context.Recetas
             .Include(r => r.RecetaAlimentos)
-            .ThenInclude(ra => ra.Alimento)
             .FirstOrDefaultAsync(r => r.Id == id);
 
         if (receta == null)
@@ -122,36 +178,36 @@ public class RecetasController : ControllerBase
             return NotFound();
         }
 
-        // Si no se especifica una cantidad de personas, usar la cantidad base de la receta
         int personasCalculadas = personas ?? receta.CantidadPersonasBase;
+        var alimentoIds = receta.RecetaAlimentos.Select(ra => ra.AlimentoId).ToList();
+
+        var alimentos = await _context.Alimentos
+            .Where(a => alimentoIds.Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id);
 
         decimal totalProteinas = 0, totalCarbohidratos = 0, totalGrasas = 0, totalCalorias = 0;
 
-        // Lista para almacenar las cantidades ajustadas de los ingredientes
         var ingredientesAjustados = new List<dynamic>();
 
         foreach (var recetaAlimento in receta.RecetaAlimentos)
         {
-            var alimento = recetaAlimento.Alimento;
+            if (!alimentos.TryGetValue(recetaAlimento.AlimentoId, out var alimento))
+            {
+                return NotFound($"Alimento con ID {recetaAlimento.AlimentoId} no encontrado.");
+            }
 
-            // Escalar la cantidad de ingredientes según la cantidad de personas
             var cantidadEscalada = recetaAlimento.Cantidad * personasCalculadas / receta.CantidadPersonasBase;
-
-            // Manejar el caso donde PesoUnidad puede ser null.
             var cantidadEnGramos = recetaAlimento.EsEnGramos 
                 ? cantidadEscalada 
                 : (cantidadEscalada * (alimento.PesoUnidad ?? 0));
 
-            // Factor para ajustar las macros basado en la cantidad de alimento (en gramos)
             var factor = cantidadEnGramos / 100;
 
-            // Calcular las macros por ración (1 persona)
             totalProteinas += alimento.Proteinas * factor;
             totalCarbohidratos += alimento.Carbohidratos * factor;
             totalGrasas += alimento.Grasas * factor;
             totalCalorias += alimento.Calorias * factor;
 
-            // Agregar la cantidad ajustada de cada ingrediente a la lista
             ingredientesAjustados.Add(new 
             {
                 NombreAlimento = alimento.Nombre,
@@ -160,7 +216,6 @@ public class RecetasController : ControllerBase
             });
         }
 
-        // Devolver las macros por 1 ración y las cantidades ajustadas de los ingredientes
         return new
         {
             IngredientesAjustados = ingredientesAjustados,

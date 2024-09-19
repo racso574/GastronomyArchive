@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using AlimentosAPI.Data;
 using AlimentosAPI.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 [Route("api/[controller]")]
 [ApiController]
@@ -18,7 +21,6 @@ public class AlimentosController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Alimento>>> GetAlimentos(string sortBy = "nombre")
     {
-        // Ordenar por nombre alfabéticamente
         var alimentos = await _context.Alimentos
                                     .OrderBy(a => a.Nombre)
                                     .ToListAsync();
@@ -84,6 +86,13 @@ public class AlimentosController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteAlimento(int id)
     {
+        // Verificar si el alimento está en alguna receta
+        bool alimentoEnReceta = await _context.RecetaAlimentos.AnyAsync(ra => ra.AlimentoId == id);
+        if (alimentoEnReceta)
+        {
+            return BadRequest($"El alimento con ID {id} está asociado a una o más recetas y no puede ser eliminado.");
+        }
+
         var alimento = await _context.Alimentos.FindAsync(id);
         if (alimento == null)
         {
