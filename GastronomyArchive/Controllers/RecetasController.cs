@@ -38,21 +38,39 @@ public class RecetasController : ControllerBase
         return Ok(recetas);
     }
 
-    // Obtener una receta por Id
-    [HttpGet("{id}")]
-    public async Task<ActionResult<Receta>> GetReceta(int id)
+    // Obtener una receta por Id con ajuste opcional de personas
+[HttpGet("{id}")]
+public async Task<ActionResult<dynamic>> GetReceta(int id, [FromQuery] int? personas = null)
+{
+    var receta = await _context.Recetas
+        .Include(r => r.RecetaAlimentos)
+        .FirstOrDefaultAsync(r => r.Id == id);
+
+    if (receta == null)
     {
-        var receta = await _context.Recetas
-            .Include(r => r.RecetaAlimentos)
-            .FirstOrDefaultAsync(r => r.Id == id);
-
-        if (receta == null)
-        {
-            return NotFound();
-        }
-
-        return receta;
+        return NotFound();
     }
+
+    // Si no se proporciona el parámetro personas, usar la cantidad de personas base
+    int personasCalculadas = personas ?? receta.CantidadPersonasBase;
+
+    // Ajustar las cantidades de los ingredientes según el número de personas
+    var ingredientesAjustados = receta.RecetaAlimentos.Select(ra => new 
+    {
+        NombreAlimento = _context.Alimentos.FirstOrDefault(a => a.Id == ra.AlimentoId)?.Nombre ?? "Desconocido",
+        CantidadAjustada = ra.Cantidad * personasCalculadas / receta.CantidadPersonasBase,
+        EsEnGramos = ra.EsEnGramos
+    }).ToList();
+
+    return new
+    {
+        Nombre = receta.Nombre,
+        Descripcion = receta.Descripcion,
+        CantidadPersonas = personasCalculadas,
+        Ingredientes = ingredientesAjustados
+    };
+}
+
 
     [HttpPut("{id}")]
 public async Task<IActionResult> PutReceta(int id, Receta receta)
@@ -165,66 +183,70 @@ public async Task<IActionResult> PutReceta(int id, Receta receta)
         return NoContent();
     }
 
-    // Calcular macros de una receta con cantidades ajustadas por personas
-    [HttpGet("{id}/calcular-macros")]
-    public async Task<ActionResult<dynamic>> CalcularMacros(int id, [FromQuery] int? personas = null)
+   
+   
+    // Calcular macros de una receta para 1 persona
+[HttpGet("{id}/calcular-macros")]
+public async Task<ActionResult<dynamic>> CalcularMacros(int id)
+{
+    var receta = await _context.Recetas
+        .Include(r => r.RecetaAlimentos)
+        .FirstOrDefaultAsync(r => r.Id == id);
+
+    if (receta == null)
     {
-        var receta = await _context.Recetas
-            .Include(r => r.RecetaAlimentos)
-            .FirstOrDefaultAsync(r => r.Id == id);
-
-        if (receta == null)
-        {
-            return NotFound();
-        }
-
-        int personasCalculadas = personas ?? receta.CantidadPersonasBase;
-        var alimentoIds = receta.RecetaAlimentos.Select(ra => ra.AlimentoId).ToList();
-
-        var alimentos = await _context.Alimentos
-            .Where(a => alimentoIds.Contains(a.Id))
-            .ToDictionaryAsync(a => a.Id);
-
-        decimal totalProteinas = 0, totalCarbohidratos = 0, totalGrasas = 0, totalCalorias = 0;
-
-        var ingredientesAjustados = new List<dynamic>();
-
-        foreach (var recetaAlimento in receta.RecetaAlimentos)
-        {
-            if (!alimentos.TryGetValue(recetaAlimento.AlimentoId, out var alimento))
-            {
-                return NotFound($"Alimento con ID {recetaAlimento.AlimentoId} no encontrado.");
-            }
-
-            var cantidadEscalada = recetaAlimento.Cantidad * personasCalculadas / receta.CantidadPersonasBase;
-            var cantidadEnGramos = recetaAlimento.EsEnGramos 
-                ? cantidadEscalada 
-                : (cantidadEscalada * (alimento.PesoUnidad ?? 0));
-
-            var factor = cantidadEnGramos / 100;
-
-            totalProteinas += alimento.Proteinas * factor;
-            totalCarbohidratos += alimento.Carbohidratos * factor;
-            totalGrasas += alimento.Grasas * factor;
-            totalCalorias += alimento.Calorias * factor;
-
-            ingredientesAjustados.Add(new 
-            {
-                NombreAlimento = alimento.Nombre,
-                CantidadAjustada = cantidadEscalada,
-                EsEnGramos = recetaAlimento.EsEnGramos
-            });
-        }
-
-        return new
-        {
-            IngredientesAjustados = ingredientesAjustados,
-            CaloriasPorRacion = totalCalorias,
-            ProteinasPorRacion = totalProteinas,
-            CarbohidratosPorRacion = totalCarbohidratos,
-            GrasasPorRacion = totalGrasas
-        };
+        return NotFound();
     }
+
+    var alimentoIds = receta.RecetaAlimentos.Select(ra => ra.AlimentoId).ToList();
+
+    var alimentos = await _context.Alimentos
+        .Where(a => alimentoIds.Contains(a.Id))
+        .ToDictionaryAsync(a => a.Id);
+
+    decimal totalProteinas = 0, totalCarbohidratos = 0, totalGrasas = 0, totalCalorias = 0;
+
+    var ingredientesAjustados = new List<dynamic>();
+
+    // Ajustar cantidades para 1 persona
+    foreach (var recetaAlimento in receta.RecetaAlimentos)
+    {
+        if (!alimentos.TryGetValue(recetaAlimento.AlimentoId, out var alimento))
+        {
+            return NotFound($"Alimento con ID {recetaAlimento.AlimentoId} no encontrado.");
+        }
+
+        // Ajustar las cantidades para 1 persona
+        var cantidadEscalada = recetaAlimento.Cantidad / receta.CantidadPersonasBase;
+        var cantidadEnGramos = recetaAlimento.EsEnGramos 
+            ? cantidadEscalada 
+            : (cantidadEscalada * (alimento.PesoUnidad ?? 0));
+
+        var factor = cantidadEnGramos / 100;
+
+        totalProteinas += alimento.Proteinas * factor;
+        totalCarbohidratos += alimento.Carbohidratos * factor;
+        totalGrasas += alimento.Grasas * factor;
+        totalCalorias += alimento.Calorias * factor;
+
+        ingredientesAjustados.Add(new 
+        {
+            NombreAlimento = alimento.Nombre,
+            CantidadAjustada = cantidadEscalada,
+            EsEnGramos = recetaAlimento.EsEnGramos
+        });
+    }
+
+    return new
+    {
+        IngredientesAjustados = ingredientesAjustados,
+        CaloriasPorRacion = totalCalorias,
+        ProteinasPorRacion = totalProteinas,
+        CarbohidratosPorRacion = totalCarbohidratos,
+        GrasasPorRacion = totalGrasas
+    };
+}
+
 
     private bool RecetaExists(int id)
     {

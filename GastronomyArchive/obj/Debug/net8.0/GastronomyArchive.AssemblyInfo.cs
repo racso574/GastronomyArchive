@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GastronomyArchive")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8a899af14419e07a5f56f16c67383dbbb9cf587c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b0c5f47ca1e9a08a18b9dbc505c2e6e5b9dd1baa")]
 [assembly: System.Reflection.AssemblyProductAttribute("GastronomyArchive")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GastronomyArchive")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
